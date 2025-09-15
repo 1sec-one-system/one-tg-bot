@@ -212,95 +212,105 @@ function getWebhookData(symbol) {
 async function testBinanceAPI() {
   console.log('🔍 Binance API testi başlatılıyor...');
   
-  // Farklı test endpointleri - daha fazla alternatif
-  const testEndpoints = [
-    // Ana Binance API'leri
-    'https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT',
-    'https://api1.binance.com/api/v3/ticker/price?symbol=BTCUSDT',
-    'https://api2.binance.com/api/v3/ticker/price?symbol=BTCUSDT',
-    'https://api3.binance.com/api/v3/ticker/price?symbol=BTCUSDT',
-    'https://api4.binance.com/api/v3/ticker/price?symbol=BTCUSDT',
-    
-    // Futures API'leri
-    'https://fapi.binance.com/fapi/v1/ticker/price?symbol=BTCUSDT',
-    'https://fapi1.binance.com/fapi/v1/ticker/price?symbol=BTCUSDT',
-    'https://fapi2.binance.com/fapi/v1/ticker/price?symbol=BTCUSDT',
-    'https://fapi3.binance.com/fapi/v1/ticker/price?symbol=BTCUSDT',
-    
-    // Alternatif API'ler
-    'https://api.binance.us/api/v3/ticker/price?symbol=BTCUSDT',
-    'https://api-gcp.binance.com/api/v3/ticker/price?symbol=BTCUSDT',
-    'https://api.binance.info/api/v3/ticker/price?symbol=BTCUSDT',
-    
-    // Yeni alternatifler
-    'https://api.binance.com/api/v3/ticker/24hr?symbol=BTCUSDT',
-    'https://api1.binance.com/api/v3/ticker/24hr?symbol=BTCUSDT',
-    'https://api.binance.com/api/v3/avgPrice?symbol=BTCUSDT'
+  // Önce klines endpoint'ini test et
+  const klinesEndpoints = [
+    'https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=1h&limit=5',
+    'https://api1.binance.com/api/v3/klines?symbol=BTCUSDT&interval=1h&limit=5',
+    'https://api2.binance.com/api/v3/klines?symbol=BTCUSDT&interval=1h&limit=5',
+    'https://api3.binance.com/api/v3/klines?symbol=BTCUSDT&interval=1h&limit=5',
+    'https://api4.binance.com/api/v3/klines?symbol=BTCUSDT&interval=1h&limit=5',
+    'https://api-gcp.binance.com/api/v3/klines?symbol=BTCUSDT&interval=1h&limit=5',
+    'https://fapi.binance.com/fapi/v1/klines?symbol=BTCUSDT&interval=1h&limit=5',
+    'https://fapi1.binance.com/fapi/v1/klines?symbol=BTCUSDT&interval=1h&limit=5'
   ];
   
-  for(let i = 0; i < testEndpoints.length; i++) {
-    const testUrl = testEndpoints[i];
-    console.log(`Test ${i+1}/${testEndpoints.length}: ${testUrl}`);
+  for(let i = 0; i < klinesEndpoints.length; i++) {
+    const testUrl = klinesEndpoints[i];
+    console.log(`Klines Test ${i+1}/${klinesEndpoints.length}: ${testUrl}`);
     
     try {
       const response = await fetch(testUrl, {
         method: 'GET',
         headers: {
           'Accept': 'application/json',
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
           'Origin': 'https://tradingview.com',
           'Referer': 'https://tradingview.com',
           'Cache-Control': 'no-cache',
-          'Pragma': 'no-cache',
-          'Accept-Language': 'en-US,en;q=0.9',
-          'Accept-Encoding': 'gzip, deflate, br',
-          'Connection': 'keep-alive'
-        },
-        cf: {
-          cacheTtl: 0,
-          cacheEverything: false,
-          polish: 'off'
+          'Pragma': 'no-cache'
         }
       });
       
-      console.log(`Status: ${response.status} ${response.statusText}`);
-      console.log('Headers:', Object.fromEntries(response.headers.entries()));
+      console.log(`Klines Status: ${response.status} ${response.statusText}`);
       
       if(response.ok) {
         const data = await response.json();
-        console.log('✅ Başarılı! Response:', data);
-        return { success: true, endpoint: testUrl, data: data };
+        console.log('✅ Klines başarılı! Veri sayısı:', data.length);
+        if(Array.isArray(data) && data.length > 0) {
+          return { success: true, endpoint: testUrl, data: data, type: 'klines' };
+        }
       } else {
-        console.log(`❌ Başarısız: ${response.status}`);
+        console.log(`❌ Klines başarısız: ${response.status}`);
       }
     } catch(error) {
-      console.log(`❌ Hata: ${error.message}`);
+      console.log(`❌ Klines hatası: ${error.message}`);
     }
+  }
+  
+  // Klines çalışmazsa ticker'ı dene
+  const tickerEndpoints = [
+    'https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT',
+    'https://api1.binance.com/api/v3/ticker/price?symbol=BTCUSDT',
+    'https://api2.binance.com/api/v3/ticker/price?symbol=BTCUSDT',
+    'https://api3.binance.com/api/v3/ticker/price?symbol=BTCUSDT',
+    'https://api4.binance.com/api/v3/ticker/price?symbol=BTCUSDT',
+    'https://api-gcp.binance.com/api/v3/ticker/price?symbol=BTCUSDT'
+  ];
+  
+  for(let i = 0; i < tickerEndpoints.length; i++) {
+    const testUrl = tickerEndpoints[i];
+    console.log(`Ticker Test ${i+1}/${tickerEndpoints.length}: ${testUrl}`);
     
-    // Kısa bekleme
-    if(i < testEndpoints.length - 1) {
-      await new Promise(resolve => setTimeout(resolve, 1000));
+    try {
+      const response = await fetch(testUrl, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        }
+      });
+      
+      if(response.ok) {
+        const data = await response.json();
+        console.log('✅ Ticker başarılı! Response:', data);
+        return { success: true, endpoint: testUrl, data: data, type: 'ticker' };
+      }
+    } catch(error) {
+      console.log(`❌ Ticker hatası: ${error.message}`);
     }
   }
   
   console.log('🚨 Tüm Binance endpointleri başarısız');
-  return { success: false, endpoint: null, data: null };
+  return { success: false, endpoint: null, data: null, type: 'none' };
 }
 
-async function fetchKlines(symbol,tf="1h",limit=300){
+async function fetchKlines(symbol, tf = "1h", limit = 300) {
+  console.log(`🔍 fetchKlines başlatılıyor: ${symbol} ${tf}`)
+  
   // Önce webhook verisini kontrol et
-  const webhookData = getWebhookData(symbol);
+  const webhookData = getWebhookData(symbol)
   if(webhookData) {
-    console.log('🎯 Webhook verisi kullanılıyor:', symbol);
-    const klines = webhookData.klines || [];
+    console.log('🎯 Webhook verisi kullanılıyor:', symbol)
+    const klines = webhookData.klines || []
     if(klines.length > 0) {
-      const o=klines.map(r=>+r[1]),h=klines.map(r=>+r[2]),l=klines.map(r=>+r[3]),c=klines.map(r=>+r[4]);
-      return {o,h,l,c,fallback:false, endpoint: 'webhook'};
+      const o = klines.map(r => +r[1]), h = klines.map(r => +r[2]), l = klines.map(r => +r[3]), c = klines.map(r => +r[4])
+      return {o, h, l, c, fallback: false, endpoint: 'webhook'}
     }
   }
   
-  // Basit Binance API denemesi
+  // Binance API'lerini dene - çalışan endpoint'i önce dene
   const binanceUrls = [
+    `https://api-gcp.binance.com/api/v3/klines?symbol=${symbol}&interval=${tf}&limit=${limit}`,
     `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${tf}&limit=${limit}`,
     `https://api1.binance.com/api/v3/klines?symbol=${symbol}&interval=${tf}&limit=${limit}`,
     `https://api2.binance.com/api/v3/klines?symbol=${symbol}&interval=${tf}&limit=${limit}`,
@@ -309,42 +319,51 @@ async function fetchKlines(symbol,tf="1h",limit=300){
     `https://fapi.binance.com/fapi/v1/klines?symbol=${symbol}&interval=${tf}&limit=${limit}`,
     `https://fapi1.binance.com/fapi/v1/klines?symbol=${symbol}&interval=${tf}&limit=${limit}`,
     `https://fapi2.binance.com/fapi/v1/klines?symbol=${symbol}&interval=${tf}&limit=${limit}`
-  ];
+  ]
   
   for(let i = 0; i < binanceUrls.length; i++) {
-    const url = binanceUrls[i];
-    console.log(`🔍 Binance API deneniyor ${i+1}/${binanceUrls.length}: ${url}`);
+    const url = binanceUrls[i]
+    console.log(`🔍 Binance API deneniyor ${i+1}/${binanceUrls.length}: ${url}`)
     
     try {
       const response = await fetch(url, {
         method: 'GET',
         headers: {
           'Accept': 'application/json',
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          'Origin': 'https://tradingview.com',
+          'Referer': 'https://tradingview.com',
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache',
+          'Accept-Language': 'en-US,en;q=0.9',
+          'Accept-Encoding': 'gzip, deflate, br',
+          'Connection': 'keep-alive'
         }
-      });
+      })
       
-      console.log(`📡 Response status: ${response.status}`);
+      console.log(`📡 Response status: ${response.status}`)
       
       if(response.ok) {
-        const data = await response.json();
-        console.log('✅ Binance veri alındı! Veri sayısı:', data.length);
+        const data = await response.json()
+        console.log('✅ Binance veri alındı! Veri sayısı:', data.length)
         
         if(Array.isArray(data) && data.length > 0) {
-          console.log('✅ Binance gerçek veri başarıyla alındı!');
-          const o=data.map(r=>+r[1]),h=data.map(r=>+r[2]),l=data.map(r=>+r[3]),c=data.map(r=>+r[4]);
-          return {o,h,l,c,fallback:false, endpoint: url};
+          console.log('✅ Binance gerçek veri başarıyla alındı!')
+          const o = data.map(r => +r[1]), h = data.map(r => +r[2]), l = data.map(r => +r[3]), c = data.map(r => +r[4])
+          return {o, h, l, c, fallback: false, endpoint: url}
         }
+      } else {
+        console.log(`❌ Binance API hatası ${i+1}: ${response.status} ${response.statusText}`)
       }
     } catch(error) {
-      console.log(`❌ Binance API hatası ${i+1}:`, error.message);
+      console.log(`❌ Binance API hatası ${i+1}:`, error.message)
     }
   }
   
-  console.log('🚨 Tüm Binance APIler başarısız - Fallback veri kullanılıyor');
-  const fallbackData = getFallbackData(symbol);
-  const o=fallbackData.map(r=>+r[1]),h=fallbackData.map(r=>+r[2]),l=fallbackData.map(r=>+r[3]),c=fallbackData.map(r=>+r[4]);
-  return {o,h,l,c,fallback:true, endpoint: 'fallback'};
+  console.log('🚨 Tüm Binance APIler başarısız - Fallback veri kullanılıyor')
+  const fallbackData = getFallbackData(symbol)
+  const o = fallbackData.map(r => +r[1]), h = fallbackData.map(r => +r[2]), l = fallbackData.map(r => +r[3]), c = fallbackData.map(r => +r[4])
+  return {o, h, l, c, fallback: true, endpoint: 'fallback'}
 }
 
 function analyze({o,h,l,c}){
