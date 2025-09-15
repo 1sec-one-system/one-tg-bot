@@ -1,77 +1,144 @@
-  import fetch from "node-fetch";
+// Vercel Serverless Function (Node 18, ESM)
+// Env: BOT_TOKEN, WORKER_URL
 
-  export default async function handler(req, res) {
-    if (req.method !== "POST") return res.status(200).send("ok");
+const OK = new Response("ok", { status: 200 });
 
-    const BOT_TOKEN = process.env.BOT_TOKEN;
-    const WORKER_URL = process.env.WORKER_URL;
-    if (!BOT_TOKEN || !WORKER_URL) return res.status(500).send("Missing env");
+export default async function handler(req, res) {
+  // Vercel middleware compat: detect runtime
+  const isNodeRes = typeof res?.status === "function";
 
-    const update = req.body || {};
-    const msg = update.message || update.edited_message;
-    if (!msg || !msg.text) return res.status(200).send("ok");
-
-    const chatId = msg.chat.id;
-    const [rawSym = "BTCUSDT", tf = "1h"] = msg.text.trim().split(/\s+/);
-    const symUp = rawSym.toUpperCase();
-    const symbol = symUp.endsWith("USDT") ? symUp : `${symUp}USDT`;
-
-    const fmt = (n,p=4)=> (n==null||Number.isNaN(n)) ? "?" : Number(n).toFixed(p);
-
-    let text = `⚡️ İstek: ${symbol} | ${tf}`;
-
-    try {
-      const a = await fetch(`${WORKER_URL}/analyze?symbol=${symbol}&tf=${tf}`);
-      const aj = await a.json();
-
-      if (aj.ok) {
-        const d = aj.details || {};
-        const side = d.side || "WAIT";
-        text =
-`*${symbol}* | *${tf}*
-Skor: *${fmt(d.score,2)}* | Plan: *${side}*
-Fiyat: \`${fmt(d.price,4)}\`  RSI14: \`${fmt(d.r,1)}\`
-EMA20: \`${fmt(d.e20,4)}\`  EMA50: \`${fmt(d.e50,4)}\`
-MACD-h: \`${fmt(d.macdHist,4)}\`  ATR14: \`${fmt(d.atr,4)}\`
-20H: \`${fmt(d.hh20,4)}\`  20L: \`${fmt(d.ll20,4)}\`
-
-Giriş: \`${fmt(d.entry,4)}\`
-SL: \`${fmt(d.sl,4)}\`
-TP1: \`${fmt(d.tp1,4)}\`
-TP2: \`${fmt(d.tp2,4)}\`
-
-_Cornix:_
-\`${symbol.lower().replace("usdt","/usdt")}\`
-\`${side=="LONG"?"buy":"sell"} ${fmt(d.entry,4)}\`
-\`sell ${fmt(d.tp1,4)}, ${fmt(d.tp2,4)}\`
-\`stop ${fmt(d.sl,4)}\`
-
-Öneri: ${aj.note || "Sinyal zayıfsa hacim düşür, SL şart."}`;
-      } else {
-        text += `\n\nHata: ${aj.error || "analiz yapılamadı"}`;
-      }
-
-      const t = await fetch(`${WORKER_URL}/top?tf=${tf}&n=5`);
-      const tj = await t.json();
-      if (tj.ok && Array.isArray(tj.top)) {
-        const alt = tj.top.find(x => x.symbol !== symbol && x.plan && x.plan.side && x.plan.side !== "WAIT");
-        if (alt) {
-          const p = alt.plan;
-          text +=
-`\n\n✨ *Benim bir önerim var:* *${alt.symbol}*.
-${p.side==="LONG" ? `\`${fmt(p.entry,4)}\` üstü alım` : `\`${fmt(p.entry,4)}\` altı satış`} fırsatı olabilir.
-SL \`${fmt(p.sl,4)}\`, TP1 \`${fmt(p.tp1,4)}\`, TP2 \`${fmt(p.tp2,4)}\`.`;
-        }
-      }
-    } catch(e) {
-      text += `\n\nHata: ${String(e)}`;
+  try {
+    if (req.method === "GET") {
+      return isNodeRes ? res.status(200).send("ok") : OK;
     }
 
-    await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`,{
-      method:"POST",
-      headers:{"Content-Type":"application/json"},
-      body: JSON.stringify({chat_id: chatId, text, parse_mode:"Markdown"})
-    });
+    if (req.method !== "POST") {
+      return isNodeRes ? res.status(405).send("method") : new Response("method", { status: 405 });
+    }
 
-    res.status(200).send("ok");
+    const body = isNodeRes ? req.body : await req.json();
+    const msg = body?.message || body?.edited_message;
+    const chatId = msg?.chat?.id;
+    const text = msg?.text?.trim() || "";
+
+    if (!chatId || !text) {
+      return isNodeRes ? res.status(200).send("ok") : OK;
+    }
+
+    // Expect: "solusdt 1h" or "btc 4h" etc.
+    const [raw, tfRaw] = text.split(/\s+/);
+    const tf = (tfRaw || "1h").toLowerCase();
+    let symbol = (raw || "").toUpperCase().replace(/[^A-Z]/g, "");
+
+    if (!symbol.endsWith("USDT")) symbol = symbol + "USDT";
+
+    const WORKER_URL = process.env.WORKER_URL;
+    const BOT_TOKEN = process.env.BOT_TOKEN;
+
+    // Query worker for TA
+    const endpoints = [
+      ${WORKER_URL}/analyze?symbol=${symbol}&tf=${tf},
+      ${WORKER_URL}/pair?symbol=${symbol}&tf=${tf}
+    ];
+
+    let data = null;
+    for (const url of endpoints) {
+      try {
+        const r = await fetch(url, { headers: { "cf-no-cache": "1" } });
+        if (r.ok) {
+          data = await r.json();
+          if (data?.ok) break;
+        }
+      } catch (_) {}
+    }
+
+    if (!data?.ok) {
+      const msgTxt = Veri alınamadı: ${symbol} ${tf}\nHata: ${data?.error || "worker"};
+      await tgSend(BOT_TOKEN, chatId, msgTxt);
+      return isNodeRes ? res.status(200).send("ok") : OK;
+    }
+
+    // Expected shape (örnek):
+    // { ok:true, summary:"...", details:{ price,e20,e50,r,macdHist,atr,hh20,ll20,side,entry,sl,tp1,tp2,score } }
+    const d = data.details || {};
+    const side = d.side || "WAIT";
+
+    // Cornix satırı
+    const cornix =
+      side === "LONG"
+        ? ${symbol.toLowerCase().replace("usdt","/usdt")} buy ${num(d.entry)} sell ${num(d.tp1)}, ${num(d.tp2)} stop ${num(d.sl)}
+        : side === "SHORT"
+        ? ${symbol.toLowerCase().replace("usdt","/usdt")} sell ${num(d.entry)} buy ${num(d.tp1)}, ${num(d.tp2)} stop ${num(d.sl)}
+        : null;
+
+    // Öneri (kısa sohbet)
+    const oneriLine = side === "WAIT"
+      ? ${symbol} için bekle. EMA/MACD teyidi zayıf.
+      : ${symbol} için ${side.toLowerCase()} sinyali var. ${num(d.entry)} üzerinde/altında tetiklenebilir. SL ${num(d.sl)}.;
+
+    // “Benim bir önerim var” bloğu (worker’da varsa top/suggest dene)
+    let extra = null;
+    try {
+      const r2 = await fetch(${WORKER_URL}/suggest?tf=${tf});
+      if (r2.ok) {
+        const j = await r2.json();
+        if (j?.ok && j?.symbol && j?.details) {
+          const s2 = j.symbol;
+          const k = j.details;
+          extra = ${s2} grafiği dikkat çekiyor. Giriş ${num(k.entry)} SL ${num(k.sl)} TP1 ${num(k.tp1)} TP2 ${num(k.tp2)}.;
+        }
+      }
+    } catch (_) {}
+
+    const header = ${symbol} | ${tf}  Skor: ${fmtScore(d.score)} | Plan: ${side}${d.entry ? `  Fiyat: ${num(d.entry)} : ""}`;
+    const tech = `RSI14: ${num(d.r)}  EMA20: ${num(d.e20)}  EMA50: ${num(d.e50)}  MACD-h: ${num(d.macdHist)}  ATR14: ${num(d.atr)}
+20H: ${num(d.hh20)}  20L: ${num(d.ll20)}`;
+
+    const plan = side === "WAIT"
+      ? Giriş: -  SL: -  TP1: -  TP2: -
+      : Giriş: ${num(d.entry)}  SL: ${num(d.sl)}  TP1: ${num(d.tp1)}  TP2: ${num(d.tp2)};
+
+    const parts = [
+      *${header}*\n${tech}\n${plan}${cornix ? `\nCornix: \${cornix}\`` : ""}`,
+      Öneri: ${oneriLine},
+      Benim bir önerim var: ${extra ?? "Risk yönetimini önceliklendir. SL zorunlu."}
+    ].join("\n\n");
+
+    await tgSend(BOT_TOKEN, chatId, parts, true);
+    return isNodeRes ? res.status(200).send("ok") : OK;
+
+  } catch (e) {
+    // silent 200 for Telegram
+    return isNodeRes ? res.status(200).send("ok") : OK;
   }
+}
+
+// Helpers
+function num(v) {
+  if (v === null || v === undefined || Number.isNaN(+v)) return "-";
+  const n = +v;
+  if (Math.abs(n) >= 100) return n.toFixed(1);
+  if (Math.abs(n) >= 1) return n.toFixed(2);
+  return n.toFixed(4);
+}
+
+function fmtScore(s) {
+  if (s === null || s === undefined) return "0";
+  const n = +s;
+  return (n > 0 ? "+" : "") + n.toFixed(2);
+}
+
+async function tgSend(token, chatId, text, markdown=false) {
+  const url = https://api.telegram.org/bot${token}/sendMessage;
+  const body = {
+    chat_id: chatId,
+    text,
+    parse_mode: markdown ? "Markdown" : undefined,
+    disable_web_page_preview: true
+  };
+  await fetch(url, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body)
+  });
+}
