@@ -84,28 +84,22 @@ export default async function handler(req, res) {
     // Debug log
     console.log(`🔍 Side değeri: ${side}, Entry: ${d.entry}, SL: ${d.sl}, TP1: ${d.tp1}, TP2: ${d.tp2}`);
 
-    // Cornix satırı
+    // Worker'dan gelen summary'yi kullan
+    let messageText = data.summary || "Veri alınamadı";
+    
+    // Cornix satırını ekle (varsa)
     const cornix =
       side === "LONG"
         ? `${symbol.toLowerCase().replace("usdt","/usdt")} buy ${num(d.entry)} sell ${num(d.tp1)}, ${num(d.tp2)} stop ${num(d.sl)}`
         : side === "SHORT"
         ? `${symbol.toLowerCase().replace("usdt","/usdt")} sell ${num(d.entry)} buy ${num(d.tp1)}, ${num(d.tp2)} stop ${num(d.sl)}`
         : null;
-
-    // Öneri (kısa sohbet)
-    const oneriLine = side === "WAIT"
-      ? `${symbol} için bekle. EMA/MACD teyidi zayıf.`
-      : `${symbol} için ${side} sinyali var. ${num(d.entry)} üzerinde/altında tetiklenebilir. SL ${num(d.sl)}.`;
-
-    // Worker'dan gelen summary'yi kullan
-    let messageText = data.summary || "Veri alınamadı";
     
-    // Cornix satırını ekle (varsa)
     if (cornix) {
       messageText += `\n\nCornix: ${cornix}`;
     }
 
-    await tgSend(BOT_TOKEN, chatId, messageText, true);
+    await tgSend(BOT_TOKEN, chatId, messageText, false);
     return isNodeRes ? res.status(200).send("ok") : OK;
 
   } catch (e) {
