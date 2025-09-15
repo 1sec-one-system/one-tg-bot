@@ -97,35 +97,15 @@ export default async function handler(req, res) {
       ? `${symbol} için bekle. EMA/MACD teyidi zayıf.`
       : `${symbol} için ${side} sinyali var. ${num(d.entry)} üzerinde/altında tetiklenebilir. SL ${num(d.sl)}.`;
 
-    // "Benim bir önerim var" bloğu (worker'da varsa top/suggest dene)
-    let extra = null;
-    try {
-      const r2 = await fetch(`${WORKER_URL}/suggest?tf=${tf}`);
-      if (r2.ok) {
-        const j = await r2.json();
-        if (j?.ok && j?.symbol && j?.details) {
-          const s2 = j.symbol;
-          const k = j.details;
-          extra = `${s2} grafiği dikkat çekiyor. Giriş ${num(k.entry)} SL ${num(k.sl)} TP1 ${num(k.tp1)} TP2 ${num(k.tp2)}.`;
-        }
-      }
-    } catch (_) {}
+    // Worker'dan gelen summary'yi kullan
+    let messageText = data.summary || "Veri alınamadı";
+    
+    // Cornix satırını ekle (varsa)
+    if (cornix) {
+      messageText += `\n\nCornix: ${cornix}`;
+    }
 
-    const header = `${symbol} | ${tf}  Skor: ${fmtScore(d.score)} | Plan: ${side}${d.entry ? `  Fiyat: ${num(d.entry)}` : ""}`;
-    const tech = `RSI14: ${num(d.r)}  EMA20: ${num(d.e20)}  EMA50: ${num(d.e50)}  MACD-h: ${num(d.macdHist)}  ATR14: ${num(d.atr)}
-20H: ${num(d.hh20)}  20L: ${num(d.ll20)}`;
-
-    const plan = side === "WAIT"
-      ? `Giriş: -  SL: -  TP1: -  TP2: -`
-      : `Giriş: ${num(d.entry)}  SL: ${num(d.sl)}  TP1: ${num(d.tp1)}  TP2: ${num(d.tp2)}`;
-
-    const parts = [
-      `*${header}*\n${tech}\n${plan}${cornix ? `\nCornix: ${cornix}` : ""}`,
-      `Öneri: ${oneriLine}`,
-      `Benim bir önerim var: ${extra ?? "Risk yönetimini önceliklendir. SL zorunlu."}`
-    ].join("\n\n");
-
-    await tgSend(BOT_TOKEN, chatId, parts, true);
+    await tgSend(BOT_TOKEN, chatId, messageText, true);
     return isNodeRes ? res.status(200).send("ok") : OK;
 
   } catch (e) {
