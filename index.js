@@ -35,6 +35,14 @@ export default async function handler(req, res) {
     const WORKER_URL = process.env.WORKER_URL;
     const BOT_TOKEN = process.env.BOT_TOKEN;
 
+    // Environment variables kontrolü
+    if (!WORKER_URL || !BOT_TOKEN) {
+      console.error("❌ Environment variables eksik:", { WORKER_URL: !!WORKER_URL, BOT_TOKEN: !!BOT_TOKEN });
+      const msgTxt = `❌ Bot konfigürasyon hatası: Environment variables eksik`;
+      await tgSend(BOT_TOKEN, chatId, msgTxt);
+      return isNodeRes ? res.status(200).send("ok") : OK;
+    }
+
     // Query worker for TA
     const endpoints = [
       `${WORKER_URL}/analyze?symbol=${symbol}&tf=${tf}`,
@@ -44,12 +52,17 @@ export default async function handler(req, res) {
     let data = null;
     for (const url of endpoints) {
       try {
+        console.log(`🔍 Worker URL deneniyor: ${url}`);
         const r = await fetch(url, { headers: { "cf-no-cache": "1" } });
+        console.log(`📡 Response status: ${r.status}`);
         if (r.ok) {
           data = await r.json();
+          console.log(`✅ Worker response:`, data);
           if (data?.ok) break;
         }
-      } catch (_) {}
+      } catch (error) {
+        console.error(`❌ Worker hatası:`, error.message);
+      }
     }
 
     if (!data?.ok) {
@@ -108,6 +121,7 @@ export default async function handler(req, res) {
     return isNodeRes ? res.status(200).send("ok") : OK;
 
   } catch (e) {
+    console.error("❌ Handler hatası:", e);
     // silent 200 for Telegram
     return isNodeRes ? res.status(200).send("ok") : OK;
   }
@@ -136,9 +150,16 @@ async function tgSend(token, chatId, text, markdown=false) {
     parse_mode: markdown ? "Markdown" : undefined,
     disable_web_page_preview: true
   };
-  await fetch(url, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(body)
-  });
+  
+  try {
+    console.log(`📤 Telegram mesajı gönderiliyor: ${chatId}`);
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body)
+    });
+    console.log(`📤 Telegram response: ${response.status}`);
+  } catch (error) {
+    console.error(`❌ Telegram gönderim hatası:`, error.message);
+  }
 }
