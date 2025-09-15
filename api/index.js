@@ -75,6 +75,9 @@ export default async function handler(req, res) {
     // { ok:true, summary:"...", details:{ price,e20,e50,r,macdHist,atr,hh20,ll20,side,entry,sl,tp1,tp2,score } }
     const d = data.details || {};
     const side = d.side || "WAIT";
+    
+    // Debug log
+    console.log(`🔍 Side değeri: ${side}, Entry: ${d.entry}, SL: ${d.sl}, TP1: ${d.tp1}, TP2: ${d.tp2}`);
 
     // Cornix satırı
     const cornix =
@@ -87,7 +90,7 @@ export default async function handler(req, res) {
     // Öneri (kısa sohbet)
     const oneriLine = side === "WAIT"
       ? `${symbol} için bekle. EMA/MACD teyidi zayıf.`
-      : `${symbol} için ${side.toLowerCase()} sinyali var. ${num(d.entry)} üzerinde/altında tetiklenebilir. SL ${num(d.sl)}.`;
+      : `${symbol} için ${side} sinyali var. ${num(d.entry)} üzerinde/altında tetiklenebilir. SL ${num(d.sl)}.`;
 
     // "Benim bir önerim var" bloğu (worker'da varsa top/suggest dene)
     let extra = null;
