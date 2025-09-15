@@ -37,8 +37,8 @@ export default async function handler(req, res) {
 
     // Query worker for TA
     const endpoints = [
-      ${WORKER_URL}/analyze?symbol=${symbol}&tf=${tf},
-      ${WORKER_URL}/pair?symbol=${symbol}&tf=${tf}
+      `${WORKER_URL}/analyze?symbol=${symbol}&tf=${tf}`,
+      `${WORKER_URL}/pair?symbol=${symbol}&tf=${tf}`
     ];
 
     let data = null;
@@ -53,7 +53,7 @@ export default async function handler(req, res) {
     }
 
     if (!data?.ok) {
-      const msgTxt = Veri alınamadı: ${symbol} ${tf}\nHata: ${data?.error || "worker"};
+      const msgTxt = `Veri alınamadı: ${symbol} ${tf}\nHata: ${data?.error || "worker"}`;
       await tgSend(BOT_TOKEN, chatId, msgTxt);
       return isNodeRes ? res.status(200).send("ok") : OK;
     }
@@ -66,42 +66,42 @@ export default async function handler(req, res) {
     // Cornix satırı
     const cornix =
       side === "LONG"
-        ? ${symbol.toLowerCase().replace("usdt","/usdt")} buy ${num(d.entry)} sell ${num(d.tp1)}, ${num(d.tp2)} stop ${num(d.sl)}
+        ? `${symbol.toLowerCase().replace("usdt","/usdt")} buy ${num(d.entry)} sell ${num(d.tp1)}, ${num(d.tp2)} stop ${num(d.sl)}`
         : side === "SHORT"
-        ? ${symbol.toLowerCase().replace("usdt","/usdt")} sell ${num(d.entry)} buy ${num(d.tp1)}, ${num(d.tp2)} stop ${num(d.sl)}
+        ? `${symbol.toLowerCase().replace("usdt","/usdt")} sell ${num(d.entry)} buy ${num(d.tp1)}, ${num(d.tp2)} stop ${num(d.sl)}`
         : null;
 
     // Öneri (kısa sohbet)
     const oneriLine = side === "WAIT"
-      ? ${symbol} için bekle. EMA/MACD teyidi zayıf.
-      : ${symbol} için ${side.toLowerCase()} sinyali var. ${num(d.entry)} üzerinde/altında tetiklenebilir. SL ${num(d.sl)}.;
+      ? `${symbol} için bekle. EMA/MACD teyidi zayıf.`
+      : `${symbol} için ${side.toLowerCase()} sinyali var. ${num(d.entry)} üzerinde/altında tetiklenebilir. SL ${num(d.sl)}.`;
 
-    // “Benim bir önerim var” bloğu (worker’da varsa top/suggest dene)
+    // "Benim bir önerim var" bloğu (worker'da varsa top/suggest dene)
     let extra = null;
     try {
-      const r2 = await fetch(${WORKER_URL}/suggest?tf=${tf});
+      const r2 = await fetch(`${WORKER_URL}/suggest?tf=${tf}`);
       if (r2.ok) {
         const j = await r2.json();
         if (j?.ok && j?.symbol && j?.details) {
           const s2 = j.symbol;
           const k = j.details;
-          extra = ${s2} grafiği dikkat çekiyor. Giriş ${num(k.entry)} SL ${num(k.sl)} TP1 ${num(k.tp1)} TP2 ${num(k.tp2)}.;
+          extra = `${s2} grafiği dikkat çekiyor. Giriş ${num(k.entry)} SL ${num(k.sl)} TP1 ${num(k.tp1)} TP2 ${num(k.tp2)}.`;
         }
       }
     } catch (_) {}
 
-    const header = ${symbol} | ${tf}  Skor: ${fmtScore(d.score)} | Plan: ${side}${d.entry ? `  Fiyat: ${num(d.entry)} : ""}`;
+    const header = `${symbol} | ${tf}  Skor: ${fmtScore(d.score)} | Plan: ${side}${d.entry ? `  Fiyat: ${num(d.entry)}` : ""}`;
     const tech = `RSI14: ${num(d.r)}  EMA20: ${num(d.e20)}  EMA50: ${num(d.e50)}  MACD-h: ${num(d.macdHist)}  ATR14: ${num(d.atr)}
 20H: ${num(d.hh20)}  20L: ${num(d.ll20)}`;
 
     const plan = side === "WAIT"
-      ? Giriş: -  SL: -  TP1: -  TP2: -
-      : Giriş: ${num(d.entry)}  SL: ${num(d.sl)}  TP1: ${num(d.tp1)}  TP2: ${num(d.tp2)};
+      ? `Giriş: -  SL: -  TP1: -  TP2: -`
+      : `Giriş: ${num(d.entry)}  SL: ${num(d.sl)}  TP1: ${num(d.tp1)}  TP2: ${num(d.tp2)}`;
 
     const parts = [
-      *${header}*\n${tech}\n${plan}${cornix ? `\nCornix: \${cornix}\`` : ""}`,
-      Öneri: ${oneriLine},
-      Benim bir önerim var: ${extra ?? "Risk yönetimini önceliklendir. SL zorunlu."}
+      `*${header}*\n${tech}\n${plan}${cornix ? `\nCornix: ${cornix}` : ""}`,
+      `Öneri: ${oneriLine}`,
+      `Benim bir önerim var: ${extra ?? "Risk yönetimini önceliklendir. SL zorunlu."}`
     ].join("\n\n");
 
     await tgSend(BOT_TOKEN, chatId, parts, true);
@@ -129,7 +129,7 @@ function fmtScore(s) {
 }
 
 async function tgSend(token, chatId, text, markdown=false) {
-  const url = https://api.telegram.org/bot${token}/sendMessage;
+  const url = `https://api.telegram.org/bot${token}/sendMessage`;
   const body = {
     chat_id: chatId,
     text,
