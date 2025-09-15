@@ -48,26 +48,34 @@ export default async function handler(req, res) {
       return isNodeRes ? res.status(200).send("ok") : OK;
     }
 
-    // Query worker for TA
-    const endpoints = [
-      `${WORKER_URL}/analyze?symbol=${symbol}&tf=${tf}`,
-      `${WORKER_URL}/pair?symbol=${symbol}&tf=${tf}`
-    ];
-
+    // Query worker for TA - sadece analyze endpoint'i kullan
+    const workerUrl = `${WORKER_URL}/analyze?symbol=${symbol}&tf=${tf}`;
+    
     let data = null;
-    for (const url of endpoints) {
-      try {
-        console.log(`🔍 Worker URL deneniyor: ${url}`);
-        const r = await fetch(url, { headers: { "cf-no-cache": "1" } });
-        console.log(`📡 Response status: ${r.status}`);
-        if (r.ok) {
-          data = await r.json();
-          console.log(`✅ Worker response:`, data);
-          if (data?.ok) break;
-        }
-      } catch (error) {
-        console.error(`❌ Worker hatası:`, error.message);
+    try {
+      console.log(`🔍 Worker URL deneniyor: ${workerUrl}`);
+      const r = await fetch(workerUrl, { 
+        headers: { 
+          "cf-no-cache": "1",
+          "cache-control": "no-cache",
+          "pragma": "no-cache"
+        } 
+      });
+      console.log(`📡 Response status: ${r.status}`);
+      
+      if (r.ok) {
+        data = await r.json();
+        console.log(`✅ Worker response:`, {
+          ok: data?.ok,
+          fallback: data?.fallback,
+          endpoint: data?.endpoint,
+          summary: data?.summary?.substring(0, 100) + "..."
+        });
+      } else {
+        console.error(`❌ Worker HTTP hatası: ${r.status} ${r.statusText}`);
       }
+    } catch (error) {
+      console.error(`❌ Worker hatası:`, error.message);
     }
 
     if (!data?.ok) {
