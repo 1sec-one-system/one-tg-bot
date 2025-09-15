@@ -30,7 +30,12 @@ export default async function handler(req, res) {
     const tf = (tfRaw || "1h").toLowerCase();
     let symbol = (raw || "").toUpperCase().replace(/[^A-Z]/g, "");
 
-    if (!symbol.endsWith("USDT")) symbol = symbol + "USDT";
+    // Çift USDT kontrolü
+    if (symbol.endsWith("USDTUSDT")) {
+      symbol = symbol.replace("USDTUSDT", "USDT");
+    } else if (!symbol.endsWith("USDT")) {
+      symbol = symbol + "USDT";
+    }
 
     const WORKER_URL = process.env.WORKER_URL;
     const BOT_TOKEN = process.env.BOT_TOKEN;
