@@ -30,13 +30,28 @@ export default async function handler(req, res){
   }
   
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 saniye timeout
+  const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 saniye timeout
   
-  const a = await fetch(`${WORKER}/analyze?symbol=${symbol}&tf=${tf}&market=${isFut?"futures":"spot"}`, {
-    signal: controller.signal
-  }).then(r=>r.json()).catch(()=>null);
-  
-  clearTimeout(timeoutId);
+  let a = null;
+  try {
+    const response = await fetch(`${WORKER}/analyze?symbol=${symbol}&tf=${tf}&market=${isFut?"futures":"spot"}`, {
+      signal: controller.signal,
+      headers: {
+        'User-Agent': 'TelegramBot/1.0',
+        'Accept': 'application/json'
+      }
+    });
+    
+    if (response.ok) {
+      a = await response.json();
+    } else {
+      console.log(`Worker API hatası: ${response.status}`);
+    }
+  } catch (error) {
+    console.log(`Worker API timeout/error: ${error.message}`);
+  } finally {
+    clearTimeout(timeoutId);
+  }
 
   if(!a?.ok){
     await fetch(TG(process.env.BOT_TOKEN)+"/sendMessage",{
