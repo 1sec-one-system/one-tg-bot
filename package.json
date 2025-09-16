@@ -1,14 +1,1 @@
-{
-  "name": "one-tg-bot",
-  "version": "1.0.0",
-  "description": "Telegram bot for crypto analysis",
-  "private": true,
-  "type": "module",
-  "dependencies": {
-    "node-fetch": "^3.3.2"
-  },
-  "scripts": {
-    "start": "node index.js",
-    "dev": "vercel dev"
-  }
-}
+{ "name":"tg-bot", "version":"1.0.0", "private":true, "type":"module" }
