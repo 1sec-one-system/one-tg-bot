@@ -20,7 +20,7 @@ export default async function handler(req, res){
   
   console.log(`🔍 Bot işlemi: ${raw} → ${symbol} (${isFut ? "futures" : "spot"})`);
 
-  const WORKER = process.env.WORKER_URL?.replace(/\/$/,"");
+  const WORKER = process.env.WORKER_URL?.replace(/\/$/,"") || "https://one.1sec-one-system.workers.dev";
   if(!WORKER) {
     await fetch(TG(process.env.BOT_TOKEN)+"/sendMessage",{
       method:"POST", headers:{'content-type':'application/json'},
@@ -29,7 +29,14 @@ export default async function handler(req, res){
     return { status: 200, json: () => ({ok:true}) };
   }
   
-  const a = await fetch(`${WORKER}/analyze?symbol=${symbol}&tf=${tf}&market=${isFut?"futures":"spot"}`).then(r=>r.json()).catch(()=>null);
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 saniye timeout
+  
+  const a = await fetch(`${WORKER}/analyze?symbol=${symbol}&tf=${tf}&market=${isFut?"futures":"spot"}`, {
+    signal: controller.signal
+  }).then(r=>r.json()).catch(()=>null);
+  
+  clearTimeout(timeoutId);
 
   if(!a?.ok){
     await fetch(TG(process.env.BOT_TOKEN)+"/sendMessage",{
