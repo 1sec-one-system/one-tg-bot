@@ -11,11 +11,11 @@ const cornix = (sym, side, entry, tps, sl) => {
 export default async function handler(req, res){
   const body = req.body || req.query || {};
   const msg = body.message || body.edited_message;
-  if(!msg?.text) return res.status(200).json({ok:true});
+  if(!msg?.text) return { status: 200, json: () => ({ok:true}) };
   const chatId = msg.chat.id;
 
   const [raw, tf="1h"] = msg.text.trim().split(/\s+/);
-  const isFut = /p$/i.test(raw);
+    const isFut = /p$/i.test(raw);
   const symbol = raw.replace(/p$/i,"").toUpperCase();
   
   console.log(`🔍 Bot işlemi: ${raw} → ${symbol} (${isFut ? "futures" : "spot"})`);
@@ -26,7 +26,7 @@ export default async function handler(req, res){
       method:"POST", headers:{'content-type':'application/json'},
       body: JSON.stringify({ chat_id: chatId, text:`❌ Worker URL eksik - Sistem yapılandırılmamış` })
     });
-    return res.status(200).json({ok:true});
+    return { status: 200, json: () => ({ok:true}) };
   }
   
   const a = await fetch(`${WORKER}/analyze?symbol=${symbol}&tf=${tf}&market=${isFut?"futures":"spot"}`).then(r=>r.json()).catch(()=>null);
@@ -36,7 +36,7 @@ export default async function handler(req, res){
       method:"POST", headers:{'content-type':'application/json'},
       body: JSON.stringify({ chat_id: chatId, text:`Veri alınamadı: ${symbol} ${tf}` })
     });
-    return res.status(200).json({ok:true});
+    return { status: 200, json: () => ({ok:true}) };
   }
 
   // caption = Worker summary + Cornix free text
@@ -54,14 +54,14 @@ export default async function handler(req, res){
   if (message_id){
     await fetch(`${WORKER}/track`,{
       method:"POST", headers:{'content-type':'application/json'},
-      body: JSON.stringify({
-        id: `${Date.now()}-${symbol}-${tf}`,
-        chat_id: chatId,
-        message_id,
+            body: JSON.stringify({
+              id: `${Date.now()}-${symbol}-${tf}`,
+              chat_id: chatId,
+              message_id,
         tf, symbol, market: isFut?"futures":"spot",
-        side: d.side, entry: d.entry, sl: d.sl, tp1: d.tp1, tp2: d.tp2, tp3: d.tp3,
-        cachedText: caption
-      })
+              side: d.side, entry: d.entry, sl: d.sl, tp1: d.tp1, tp2: d.tp2, tp3: d.tp3,
+              cachedText: caption
+            })
     }).catch(()=>{});
   }
 
